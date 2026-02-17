@@ -203,5 +203,3 @@ Players.PlayerRemoving:Connect(RemoveESP)
 for _, player in pairs(Players:GetPlayers()) do
     AddESP(player)
 end
-
-print("NullSyntax Menu Loaded")
