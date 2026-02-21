@@ -1,28 +1,21 @@
--- Basic Menu & ESP
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 
--- Local Player
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Configuration
 local Config = {
     BoxESP = false,
-    NameESP = false,
+    TracerESP = false,
     MenuOpen = true
 }
 
--- Drawing Cache
 local ESP_Cache = {}
 
--- UI Setup
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NullSyntaxMenu"
--- Try to parent to CoreGui for safety/hide from game, fallback to PlayerGui
+ScreenGui.Name = "BasicX"
 if pcall(function() ScreenGui.Parent = CoreGui end) then
 else
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -39,13 +32,12 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Title.Text = "NullSyntax Menu"
+Title.Text = "by zb22 (22z)"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 18
 Title.Parent = MainFrame
 
--- Draggable Logic
 local dragging, dragInput, dragStart, startPos
 Title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -74,7 +66,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Toggles
 local function CreateToggle(name, yPos, configKey)
     local Button = Instance.new("TextButton")
     Button.Size = UDim2.new(1, -20, 0, 30)
@@ -87,22 +78,38 @@ local function CreateToggle(name, yPos, configKey)
     Button.MouseButton1Click:Connect(function()
         Config[configKey] = not Config[configKey]
         Button.Text = name .. ": " .. (Config[configKey] and "ON" or "OFF")
-        Button.BackgroundColor3 = Config[configKey] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 60)
+        Button.BackgroundColor3 = Config[configKey] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(60, 60, 60)
     end)
 end
 
 CreateToggle("Box ESP", 40, "BoxESP")
-CreateToggle("Name ESP", 80, "NameESP")
+CreateToggle("Tracer ESP", 80, "TracerESP")
 
--- Menu Toggle Key
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.Insert then
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.F then
+        local newState = not (Config.BoxESP or Config.TracerESP)
+        Config.BoxESP = newState
+        Config.TracerESP = newState
+        
+        for _, obj in pairs(MainFrame:GetChildren()) do
+            if obj:IsA("TextButton") then
+                if obj.Text:find("Box ESP") then
+                    obj.Text = "Box ESP: " .. (Config.BoxESP and "ON" or "OFF")
+                    obj.BackgroundColor3 = Config.BoxESP and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(60, 60, 60)
+                elseif obj.Text:find("Tracer ESP") then
+                    obj.Text = "Tracer ESP: " .. (Config.TracerESP and "ON" or "OFF")
+                    obj.BackgroundColor3 = Config.TracerESP and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(60, 60, 60)
+                end
+            end
+        end
+    elseif input.KeyCode == Enum.KeyCode.Insert then
         Config.MenuOpen = not Config.MenuOpen
         MainFrame.Visible = Config.MenuOpen
     end
 end)
 
--- ESP Functions
 local function CreateDrawing(type, properties)
     local drawing = Drawing.new(type)
     for k, v in pairs(properties) do
@@ -117,17 +124,14 @@ local function AddESP(player)
     local Objects = {
         Box = CreateDrawing("Square", {
             Thickness = 1,
-            Color = Color3.new(1, 0, 0),
+            Color = Color3.new(1, 0, 0), -- vermelho
             Filled = false,
             Visible = false
         }),
-        Name = CreateDrawing("Text", {
-            Text = player.Name,
-            Color = Color3.new(1, 1, 1),
-            Center = true,
-            Outline = true,
-            Visible = false,
-            Size = 16
+        Tracer = CreateDrawing("Line", {
+            Thickness = 1,
+            Color = Color3.new(1, 0, 0), -- vermelho
+            Visible = false
         })
     }
     
@@ -143,7 +147,6 @@ local function RemoveESP(player)
     end
 end
 
--- Update Loop
 RunService.RenderStepped:Connect(function()
     for player, objects in pairs(ESP_Cache) do
         if not player.Parent then
@@ -154,22 +157,19 @@ RunService.RenderStepped:Connect(function()
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
             local rootPart = character.HumanoidRootPart
-            local head = character:FindFirstChild("Head")
-            
             local vector, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
             
             if onScreen then
-                local rootPos = rootPart.Position
-                local headPos = head and head.Position or (rootPos + Vector3.new(0, 2, 0))
-                local legPos = rootPos - Vector3.new(0, 3, 0)
+                local head = character:FindFirstChild("Head")
+                local headPos = head and head.Position or (rootPart.Position + Vector3.new(0, 2, 0))
+                local legPos = rootPart.Position - Vector3.new(0, 3, 0)
                 
                 local headVec = Camera:WorldToViewportPoint(headPos + Vector3.new(0, 0.5, 0))
                 local legVec = Camera:WorldToViewportPoint(legPos)
                 
                 local height = legVec.Y - headVec.Y
                 local width = height / 2
-                
-                -- Box ESP
+
                 if Config.BoxESP then
                     objects.Box.Visible = true
                     objects.Box.Size = Vector2.new(width, height)
@@ -177,26 +177,25 @@ RunService.RenderStepped:Connect(function()
                 else
                     objects.Box.Visible = false
                 end
-                
-                -- Name ESP
-                if Config.NameESP then
-                    objects.Name.Visible = true
-                    objects.Name.Position = Vector2.new(vector.X, headVec.Y - 20)
+
+                if Config.TracerESP then
+                    objects.Tracer.Visible = true
+                    objects.Tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y) -- centro inferior da tela
+                    objects.Tracer.To = Vector2.new(vector.X, vector.Y)
                 else
-                    objects.Name.Visible = false
+                    objects.Tracer.Visible = false
                 end
             else
                 objects.Box.Visible = false
-                objects.Name.Visible = false
+                objects.Tracer.Visible = false
             end
         else
             objects.Box.Visible = false
-            objects.Name.Visible = false
+            objects.Tracer.Visible = false
         end
     end
 end)
 
--- Player Events
 Players.PlayerAdded:Connect(AddESP)
 Players.PlayerRemoving:Connect(RemoveESP)
 
